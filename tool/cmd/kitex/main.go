@@ -28,6 +28,7 @@ import (
 	"github.com/cloudwego/kitex/tool/internal_pkg/log"
 	"github.com/cloudwego/kitex/tool/internal_pkg/pluginmode/protoc"
 	"github.com/cloudwego/kitex/tool/internal_pkg/pluginmode/thriftgo"
+	"github.com/cloudwego/kitex/tool/internal_pkg/tpl"
 	"github.com/cloudwego/kitex/tool/internal_pkg/util"
 )
 
@@ -35,6 +36,8 @@ var args arguments
 
 func init() {
 	var queryVersion bool
+	var templateOpt string
+
 	args.addExtraFlag(&extraFlag{
 		apply: func(f *flag.FlagSet) {
 			f.BoolVar(&queryVersion, "version", false,
@@ -44,6 +47,45 @@ func init() {
 			if queryVersion {
 				println(a.Version)
 				os.Exit(0)
+			}
+		},
+	})
+	args.addExtraFlag(&extraFlag{
+		apply: func(f *flag.FlagSet) {
+			f.StringVar(&templateOpt, "template", "",
+				"child command about customize template")
+		},
+		check: func(a *arguments) {
+			if templateOpt != "" {
+				switch templateOpt {
+				case "init":
+					templates := []struct {
+						name    string
+						content string
+					}{
+						{"bootstrap.sh.tmpl", tpl.BootstrapTpl},
+						{"build.sh.tmpl", tpl.BuildTpl},
+						{"client.go.tmpl", tpl.ClientTpl},
+						{"handler.go.tmpl", tpl.HandlerTpl},
+						{"handler.method.tmpl", tpl.HandlerMethodsTpl},
+						{"invoker.go.tmpl", tpl.InvokerTpl},
+						{"main.go.tmpl", tpl.MainTpl},
+						{"server.go.tmpl", tpl.ServerTpl},
+					}
+					d, err := os.Getwd()
+					if err != nil {
+						log.Warn(err)
+					}
+					for _, tmpl := range templates {
+						f, err := os.Create(filepath.Join(d, tmpl.name))
+						if err != nil {
+							log.Warn(err)
+						}
+						defer f.Close()
+						_, err = f.WriteString(tmpl.content)
+					}
+					os.Exit(0)
+				}
 			}
 		},
 	})

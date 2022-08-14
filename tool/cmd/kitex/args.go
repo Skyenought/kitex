@@ -65,6 +65,8 @@ func (a *arguments) buildFlags() *flag.FlagSet {
 		"Generate codes without injecting fast method.")
 	f.StringVar(&a.ModuleName, "module", "",
 		"Specify the Go module name to generate go.mod.")
+	f.StringVar(&a.HomePath, "home", "",
+		"the customize template path.")
 	f.StringVar(&a.ServiceName, "service", "",
 		"Specify the service name to generate server side codes.")
 	f.StringVar(&a.Use, "use", "",

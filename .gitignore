@@ -46,6 +46,9 @@ testdata/
 
 # kitex binary
 tool/cmd/kitex/kitex
+# template
+tool/cmd/kitextmp
+tool/cmd/test
 
 # remote dump file
 *.json

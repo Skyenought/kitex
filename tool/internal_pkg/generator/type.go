@@ -46,6 +46,10 @@ type PackageInfo struct {
 	Features         []feature
 }
 
+type Templates struct {
+	Tmpls map[string]string
+}
+
 // AddImport .
 func (p *PackageInfo) AddImport(pkg, path string) {
 	if pkg != "" {

@@ -17,6 +17,7 @@ package generator
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -40,6 +41,15 @@ const (
 	ServerFileName    = "server.go"
 	InvokerFileName   = "invoker.go"
 	ServiceFileName   = "*service.go"
+
+	BuildTmplFileName         = "build.sh.tmpl"
+	BootstrapTmplFileName     = "bootstrap.sh.tmpl"
+	HandlerTmplFileName       = "handler.go.tmpl"
+	HandlerMethodTmplFileName = "handler.method.tmpl"
+	MainTmplFileName          = "main.go.tmpl"
+	ClientTmplFileName        = "client.go.tmpl"
+	ServerTmplFileName        = "server.go.tmpl"
+	InvokerTmplFileName       = "invoker.go.tmpl"
 )
 
 var (
@@ -109,6 +119,7 @@ type Config struct {
 	CopyIDL         bool
 	ThriftPlugins   util.StringSlice
 	Features        []feature
+	HomePath        string
 }
 
 // Pack packs the Config into a slice of "key=val" strings.
@@ -231,26 +242,67 @@ func (g *generator) chainMWs(handle HandleFunc) HandleFunc {
 	return handle
 }
 
+func NewTemplates(g *generator) (*Templates, error) {
+	var templateDir string
+	t := &Templates{map[string]string{}}
+	t.Tmpls[BuildTmplFileName] = tpl.BuildTpl
+	t.Tmpls[BootstrapTmplFileName] = tpl.BootstrapTpl
+	t.Tmpls[ClientTmplFileName] = tpl.ClientTpl
+	t.Tmpls[HandlerTmplFileName] = tpl.HandlerTpl
+	t.Tmpls[HandlerMethodTmplFileName] = tpl.HandlerMethodsTpl
+	t.Tmpls[InvokerTmplFileName] = tpl.InvokerTpl
+	t.Tmpls[MainTmplFileName] = tpl.MainTpl
+	t.Tmpls[ServerTmplFileName] = tpl.ServiceTpl
+
+	if g.HomePath != "" {
+		homePath := filepath.Join(g.OutputPath, g.Config.HomePath)
+		if util.FileExists(homePath) {
+			templateDir = homePath
+		} else {
+			log.Warn("home path doesn't exist!")
+			os.Exit(1)
+		}
+	}
+	for name := range t.Tmpls {
+		tmplFilePath := filepath.Join(templateDir, name)
+		if util.FileExists(tmplFilePath) {
+			file, err := os.ReadFile(tmplFilePath)
+			if err != nil {
+				log.Warnf("Unexpected Error: %v", err.Error())
+				return nil, err
+			}
+			t.Tmpls[name] = string(file)
+		} else {
+			log.Warnf("read customize template failed! It's a wrong path: %s", g.HomePath)
+			os.Exit(1)
+		}
+	}
+	return t, nil
+}
+
 func (g *generator) GenerateMainPackage(pkg *PackageInfo) (fs []*File, err error) {
 	g.updatePackageInfo(pkg)
-
+	templates, err := NewTemplates(g)
+	if err != nil {
+		return nil, err
+	}
 	tasks := []*Task{
 		{
 			Name: BuildFileName,
 			Path: filepath.Join(g.OutputPath, BuildFileName),
-			Text: tpl.BuildTpl,
+			Text: templates.Tmpls[BuildTmplFileName],
 		},
 		{
 			Name: BootstrapFileName,
 			Path: filepath.Join(g.OutputPath, "script", BootstrapFileName),
-			Text: tpl.BootstrapTpl,
+			Text: templates.Tmpls[BootstrapTmplFileName],
 		},
 	}
 	if !g.Config.GenerateInvoker {
 		tasks = append(tasks, &Task{
 			Name: MainFileName,
 			Path: filepath.Join(g.OutputPath, MainFileName),
-			Text: tpl.MainTpl,
+			Text: templates.Tmpls[MainTmplFileName],
 		})
 	}
 	for _, t := range tasks {
@@ -287,7 +339,7 @@ func (g *generator) GenerateMainPackage(pkg *PackageInfo) (fs []*File, err error
 		task := Task{
 			Name: HandlerFileName,
 			Path: handlerFilePath,
-			Text: tpl.HandlerTpl + "\n" + tpl.HandlerMethodsTpl,
+			Text: templates.Tmpls[HandlerTmplFileName] + "\n" + templates.Tmpls[HandlerMethodTmplFileName],
 		}
 		g.setImports(task.Name, pkg)
 		handle := func(task *Task, pkg *PackageInfo) (*File, error) {
@@ -310,22 +362,25 @@ func (g *generator) GenerateService(pkg *PackageInfo) ([]*File, error) {
 	}
 	svcPkg := strings.ToLower(pkg.ServiceName)
 	output = filepath.Join(output, svcPkg)
-
+	templates, err := NewTemplates(g)
+	if err != nil {
+		return nil, err
+	}
 	tasks := []*Task{
 		{
 			Name: ClientFileName,
 			Path: filepath.Join(output, ClientFileName),
-			Text: tpl.ClientTpl,
+			Text: templates.Tmpls[ClientTmplFileName],
 		},
 		{
 			Name: ServerFileName,
 			Path: filepath.Join(output, ServerFileName),
-			Text: tpl.ServerTpl,
+			Text: templates.Tmpls[ServerTmplFileName],
 		},
 		{
 			Name: InvokerFileName,
 			Path: filepath.Join(output, InvokerFileName),
-			Text: tpl.InvokerTpl,
+			Text: templates.Tmpls[InvokerTmplFileName],
 		},
 		{
 			Name: ServiceFileName,
