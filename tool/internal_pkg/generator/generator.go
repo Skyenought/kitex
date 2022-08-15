@@ -263,6 +263,7 @@ func NewTemplates(g *generator) (*Templates, error) {
 			os.Exit(1)
 		}
 	}
+	tmpNum := 0
 	for name := range t.Tmpls {
 		tmplFilePath := filepath.Join(templateDir, name)
 		if util.FileExists(tmplFilePath) {
@@ -273,10 +274,10 @@ func NewTemplates(g *generator) (*Templates, error) {
 			}
 			t.Tmpls[name] = string(file)
 		} else {
-			log.Warnf("read customize template failed! It's a wrong path: %s", g.HomePath)
-			os.Exit(1)
+			tmpNum++
 		}
 	}
+	log.Warnf("wrong customize template path: %s", templateDir)
 	return t, nil
 }
 
